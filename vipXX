@@ -1,0 +1,30 @@
+# Virtual Server Config #
+
+# custID XXXXXXXX 
+
+virtual_server VirtIP 0 {
+        delay_loop 5
+        lb_algo wlc
+        lb_kind NAT
+	persistence_timeout 3600
+        protocol TCP
+#	virtualhost www.example.com
+
+real_server realIP {	
+         weight 1
+         TCP_CHECK {
+         connect_port 80 
+         connect_timeout 3
+         delay_before_retry 5
+        }
+        }
+
+real_server realIP {
+         weight 1
+         TCP_CHECK {
+         connect_port 80 
+         connect_timeout 3
+         delay_before_retry 5
+        }
+        }
+}

@@ -1,0 +1,14 @@
+*filter
+:INPUT DROP [0:0]
+:FORWARD DROP [0:0]
+:OUTPUT ACCEPT [0:0]
+:Firewall-1-INPUT - [0:0]
+-A INPUT -j Firewall-1-INPUT
+-A FORWARD -j Firewall-1-INPUT
+-A Firewall-1-INPUT -i lo -j ACCEPT
+-A Firewall-1-INPUT -p icmpv6 --icmpv6-type 128 -j ACCEPT
+-A Firewall-1-INPUT -p icmpv6 --icmpv6-type 129 -j ACCEPT
+-A Firewall-1-INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+-A Firewall-1-INPUT -s some:thing::0/64 -j ACCEPT
+-A Firewall-1-INPUT -j DROP 
+COMMIT

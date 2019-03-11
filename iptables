@@ -1,0 +1,98 @@
+#! /bin/sh
+
+### Standard base for a NAT dual purpose Firewall/LVS Appliance ###
+
+ADMIN="x.x.x.0/24"
+NAGIOS="x.x.x.x/32"
+BACKUP="x.x.x.0/24"
+LAN="10.0.0.0/16"
+DEFAULT_PORTS="21,22,80,443"
+SOME_ALLOW=""
+
+# FLUSH RULES B4 RELOADING 
+iptables -F #Flush firewall rules 
+iptables -X #Delete user defined chains 
+iptables -Z #Zero chains counters 
+iptables -t nat -F #Flush all nat tables 
+iptables -t nat -X #Delete all nat tables
+iptables -t filter -F	# Flush all filter rules
+iptables -t filter -X	# Delete all filter chains
+iptables -t mangle -F # Flush all mangle rules
+iptables -t mangle -X # Delete all mangle chains
+
+# Modules
+modprobe nf_conntrack
+modprobe nf_conntrack_ftp
+modprobe nf_nat_ftp
+modprobe ip_vs_ftp
+
+####################
+# Default Policies #
+####################
+
+iptables -P INPUT DROP
+iptables -P FORWARD DROP
+iptables -P OUTPUT ACCEPT 
+
+iptables -A INPUT -m state --state RELATED,ESTABLISHED -j ACCEPT
+iptables -A INPUT -p icmp -j ACCEPT
+iptables -A INPUT -i lo -j ACCEPT
+iptables -A INPUT -s $ADMIN -j ACCEPT
+iptables -A INPUT -s $NAGIOS -j ACCEPT
+iptables -A INPUT -s $BACKUP -j ACCEPT
+
+iptables -A FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT
+iptables -A FORWARD -p icmp -j ACCEPT
+iptables -A FORWARD -i eth1 -j ACCEPT
+iptables -A FORWARD -s $ADMIN -d $LAN -j ACCEPT
+iptables -A FORWARD -s $NAGIOS -d $LAN -j ACCEPT
+iptables -A FORWARD -s $BACKUP -d $LAN -j ACCEPT
+
+
+#########
+# DROPS #
+#########
+
+
+#############
+#NAT Section#
+#############
+
+# Dest NAT
+iptables -A PREROUTING -t nat -i eth0 -d x.x.x.x -j DNAT --to 10.0.0.x 
+
+# Source NAT
+iptables -A POSTROUTING -t nat -o eth0 -s 10.0.0.x -j SNAT --to x.x.x.x 
+
+
+#############
+#Input Chain#
+#############
+
+# VRRP (Uncomment this if using 2 Redundant LVS Appliances)
+#iptables -A INPUT -p 112 -j ACCEPT
+
+# Load Balanced Ports Allowed
+iptables -A INPUT -d virtIP1 -m tcp -p tcp -m multiport --dports 80,443 -j ACCEPT
+
+
+###############
+#Forward Chain#
+###############
+
+# Individual Server Forwarding
+iptables -A FORWARD -d $LAN -m tcp -m multiport -p tcp --dports $DEFAULT_PORTS -j ACCEPT
+
+##-- Some Allow Example --##
+#for i in $SOME_ALLOW
+#  do
+#       iptables -A FORWARD -s $i -d $LAN -m tcp -p tcp --dport 3306 -j ACCEPT
+#  done
+##--  --##
+
+
+#############################
+# Drop Everything Else LAST # 
+#############################
+iptables -A INPUT -j DROP
+iptables -A FORWARD -j DROP 
